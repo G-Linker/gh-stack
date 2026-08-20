@@ -77,19 +77,41 @@ gh stack rebase --abort
 
 ## 4. 推上去，改底层 PR 的 base
 
+GitHub **不允许**在 PR 还属于某个 Stack 时改它的 base：
+
+```
+Cannot change the base branch because the pull request is part of a stack.
+```
+
+所以要先在远端拆掉旧 Stack，改 `#1` 的 base，再重新 link。本地 tracking 会一起被清掉，改完再 `init --base` 认回来。
+
 ```bash
+# 拆掉 GitHub 上的旧 Stack #5（PR 都还在）
+gh stack unstack
+
+# 底层 PR 现在可以改 base 了
+gh pr edit 1 --base feat/release-3.4.4
+
+# 用新 trunk 把同一串分支认回来
+gh stack init --base feat/release-3.4.4 \
+  feat/stack-mock stack-mock-1 stack-mock-2 \
+  stack-mock-3 stack-mock-4 stack-mock-5
+
+# 推分支，并把 6 个已有 PR 重新组成 Stack（这次会拿到新的 stack number）
 gh stack submit --auto
 ```
 
-`submit` 会 force-with-lease 推全部层，并把 `#1` 的 base 从 `main` 改成 `feat/release-3.4.4`。上面几层的 base 仍然是各自的下一层。
+上面几层的 base 仍然是各自的下一层，只有 `#1` 从 `main` 改成 `feat/release-3.4.4`。
 
 ## 预期结果
 
 - `gh stack view` 的 trunk 是 `feat/release-3.4.4`
+- https://github.com/G-Linker/gh-stack/pull/10 是 release 自己对 `main` 的 PR，**不属于**这条 stack
 - https://github.com/G-Linker/gh-stack/pull/1 的 base 不再是 `main`
-- `#1` Files changed 仍只有 `00-init.md`
+- `#1` Files changed 仍只有 `00-init.md`（release 文件在 trunk 上，不算进 stack diff）
 - `git log feat/stack-mock` 里能看到 release 的 chore commit
 - 合 stack 时合进的是 `feat/release-3.4.4`，不是 `main`
+- 旧的 Stack #5 被 unstack 后，重新 submit 会得到新的 Stack #11（PR 号码不变）
 
 ## 并行的 3a / 3b
 
